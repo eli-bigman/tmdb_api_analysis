@@ -22,18 +22,6 @@ def load_config(config_path: str = "config/config.yaml") -> Dict[str, Any]:
         return yaml.safe_load(f)
     
 
-def load_movie_ids(config_path: str = "config/config.yaml") -> List[int]:
-    """
-    Load movie IDs from configuration file.
-    
-    Args:
-        config_path: Path to config.yaml file
-    Returns:
-        List of movie IDs
-    """
-    config = load_config(config_path)
-    return config.get('data_collection', {}).get('movie_id', [])
-
 
 def load_json(file_path: str) -> Dict[str, Any]:
     """
@@ -85,6 +73,13 @@ def setup_logging(config_path: str = "config/config.yaml", module_name: str = No
     Returns:
         Configured logger instance
     """
+    # Get logger first
+    logger = logging.getLogger(module_name or __name__)
+    
+    # If logger already has handlers, return it as-is (already configured)
+    if logger.hasHandlers():
+        return logger
+    
     config = load_config(config_path)
     log_config = config.get('logging', {})
     
@@ -93,21 +88,14 @@ def setup_logging(config_path: str = "config/config.yaml", module_name: str = No
         log_file = log_config.get('log_file', 'logs/tmdb_analysis.log')
         Path(log_file).parent.mkdir(parents=True, exist_ok=True)
     
-    # Get logger
-    logger = logging.getLogger(module_name or __name__)
-    
-    # Clear any existing handlers
-    logger.handlers.clear()
-    
     # Set level
     level_str = log_config.get('level', 'INFO')
     level = getattr(logging, level_str.upper(), logging.INFO)
     
     # Check for module-specific level
-    if module_name:
-        module_levels = log_config.get('module_levels', {})
-        if module_name in module_levels:
-            level = getattr(logging, module_levels[module_name].upper(), level)
+    module_levels = log_config.get('module_levels', {})
+    if module_name and module_name in module_levels:
+        level = getattr(logging, module_levels[module_name].upper(), level)
     
     logger.setLevel(level)
     
@@ -131,8 +119,7 @@ def setup_logging(config_path: str = "config/config.yaml", module_name: str = No
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     
-    # Prevent propagation to root logger
+    # Prevent propagation to root logger to avoid duplicate logs
     logger.propagate = False
     
     return logger
-    # return list(Path(directory).glob("*.json"))
