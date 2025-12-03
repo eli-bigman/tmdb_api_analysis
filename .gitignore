@@ -1,6 +1,6 @@
 # Environment variables
 .env
-
+local.env
 # Data files
 data/raw/*
 data/interim/*
@@ -40,6 +40,7 @@ ENV/
 Thumbs.db
 
 # Logs
+logs/
 *.log
 
 # Distribution / packaging
