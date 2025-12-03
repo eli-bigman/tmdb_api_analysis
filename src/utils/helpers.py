@@ -19,6 +19,19 @@ def load_config(config_path: str = "config/config.yaml") -> Dict[str, Any]:
     """
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
+    
+    
+def load_movie_ids(config_path: str = "config/config.yaml") -> List[int]:
+    """
+    Load movie IDs from configuration file.
+    
+    Args:
+        config_path: Path to config.yaml file
+    Returns:
+        List of movie IDs
+    """
+    config = load_config(config_path)
+    return config.get('data_collection', {}).get('movie_id', [])
 
 
 def load_json(file_path: str) -> Dict[str, Any]:
