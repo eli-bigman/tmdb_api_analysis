@@ -1,0 +1,77 @@
+# Global Configuration for TMDB Movie Analysis Project
+
+# Paths
+paths:
+  raw_data: "data/raw/"
+  interim_data: "data/interim/"
+  processed_data: "data/processed/"
+  reports: "reports/"
+  figures: "reports/figures/"
+
+# API Configuration
+api:
+  base_url: "https://api.themoviedb.org/3"
+  timeout: 30
+  rate_limit_delay: 0.25  # seconds between requests
+
+# Data Collection
+data_collection:
+  # IDs of movies to fetch from TMDB.
+  movie_ids:
+    - 0
+    - 299534
+    - 19995
+    - 140607
+    - 299536
+    - 597
+    - 135397
+    - 420818
+    - 24428
+    - 168259
+    - 99861
+    - 284054
+    - 12445
+    - 181808
+    - 330457
+    - 351286
+    - 109445
+    - 321612
+    - 260513
+
+
+# Features to extract
+features:
+  basic:
+    - id
+    - title
+    - original_title
+    - release_date
+    - budget
+    - revenue
+    - runtime
+    - vote_average
+    - vote_count
+    - popularity
+    - overview
+  
+  nested:
+    - genres
+    - production_companies
+    - production_countries
+    - spoken_languages
+    - keywords
+    - credits_crew
+    - credits_cast
+    
+# Analysis Configuration
+analysis:
+  min_vote_count: 100  # minimum votes for inclusion
+  min_budget: 1000000  # minimum budget in USD
+  franchise_threshold: 3  # min movies to be considered a franchise
+  
+# Visualization
+visualization:
+  style: "seaborn"
+  palette: "husl"
+  figure_size: [12, 8]
+  dpi: 300
