@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from src.utils.helpers import load_config, save_json, load_movie_ids, setup_logging
+from src.utils.helpers import load_config, save_json, setup_logging
 
 # Setup logger for this module
 logger = setup_logging(module_name='fetch')
@@ -105,7 +105,7 @@ class TMDBFetcher:
 def main():
     """Main execution function."""
 
-    movie_ids = [int(mid) for mid in load_movie_ids()]
+    movie_ids = [0]
     if not movie_ids:
         logger.error("No movie ids found in config under 'data_collection.movie_id'. Nothing to fetch.")
         return
