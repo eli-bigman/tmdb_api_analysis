@@ -4,6 +4,7 @@ Utility helper functions for the TMDB analysis project.
 import yaml
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -73,20 +74,30 @@ def setup_logging(config_path: str = "config/config.yaml", module_name: str = No
     Returns:
         Configured logger instance
     """
+
     # Get logger first
     logger = logging.getLogger(module_name or __name__)
     
-    # If logger already has handlers, return it as-is (already configured)
-    if logger.hasHandlers():
+    # Prevent propagation to root logger to avoid duplicate messages
+    logger.propagate = False
+    
+    # Clear root logger handlers to prevent interference (common in Jupyter notebooks)
+    root_logger = logging.getLogger()
+    if root_logger.handlers:
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+    
+    # If logger already has handlers, it's already configured - just return it
+    # This prevents adding duplicate handlers when the same logger is requested multiple times
+    if logger.handlers:
         return logger
     
-    config = load_config(config_path)
-    log_config = config.get('logging', {})
-    
-    # Create logs directory if needed
-    if log_config.get('log_to_file', False):
-        log_file = log_config.get('log_file', 'logs/tmdb_analysis.log')
-        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        config = load_config(config_path)
+        log_config = config.get('logging', {})
+    except Exception:
+        # Fallback if config fails
+        log_config = {'level': 'INFO', 'log_to_console': True}
     
     # Set level
     level_str = log_config.get('level', 'INFO')
@@ -106,7 +117,7 @@ def setup_logging(config_path: str = "config/config.yaml", module_name: str = No
     
     # Console handler
     if log_config.get('log_to_console', True):
-        console_handler = logging.StreamHandler()
+        console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(level)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
@@ -114,12 +125,13 @@ def setup_logging(config_path: str = "config/config.yaml", module_name: str = No
     # File handler
     if log_config.get('log_to_file', False):
         log_file = log_config.get('log_file', 'logs/tmdb_analysis.log')
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setLevel(level)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-    
-    # Prevent propagation to root logger to avoid duplicate logs
-    logger.propagate = False
+        try:
+            Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+            file_handler = logging.FileHandler(log_file, encoding='utf-8')
+            file_handler.setLevel(level)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+        except Exception as e:
+            print(f"Failed to setup file logging: {e}")
     
     return logger
