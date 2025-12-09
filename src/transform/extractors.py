@@ -16,7 +16,7 @@ def extract_collection_name(collection_data: Any) -> str:
     Returns:
         Collection name or NaN
     """
-    if pd.isna(collection_data) or not collection_data:
+    if collection_data is None or pd.isna(collection_data):
         return np.nan
     if isinstance(collection_data, dict):
         return collection_data.get('name', np.nan)
@@ -34,9 +34,11 @@ def extract_names_from_list(items: Any, key: str = 'name') -> str:
     Returns:
         Pipe-separated string of names or NaN
     """
-    if pd.isna(items) or not items:
+    if items is None or pd.isna(items):
         return np.nan
     if isinstance(items, list):
+        if len(items) == 0:
+            return np.nan
         names = [item.get(key, '') for item in items if isinstance(item, dict)]
         names = [name for name in names if name]  # Remove empty strings
         return '|'.join(names) if names else np.nan
@@ -54,11 +56,11 @@ def extract_cast_info(credits: Any, top_n: int = 5) -> Tuple[str, int]:
     Returns:
         Tuple of (cast_names, cast_size)
     """
-    if pd.isna(credits) or not isinstance(credits, dict):
+    if credits is None or pd.isna(credits) or not isinstance(credits, dict):
         return np.nan, 0
     
     cast_list = credits.get('cast', [])
-    if not cast_list:
+    if len(cast_list) == 0:
         return np.nan, 0
     
     # Sort by order and get top N
@@ -80,11 +82,11 @@ def extract_director(credits: Any) -> str:
     Returns:
         Director name or NaN
     """
-    if pd.isna(credits) or not isinstance(credits, dict):
+    if credits is None or pd.isna(credits) or not isinstance(credits, dict):
         return np.nan
     
     crew_list = credits.get('crew', [])
-    if not crew_list:
+    if len(crew_list) == 0:
         return np.nan
     
     # Find director
@@ -105,10 +107,10 @@ def extract_crew_size(credits: Any) -> int:
     Returns:
         Number of crew members
     """
-    if pd.isna(credits) or not isinstance(credits, dict):
+    if credits is None or pd.isna(credits) or not isinstance(credits, dict):
         return 0
     crew_list = credits.get('crew', [])
-    return len(crew_list) if crew_list else 0
+    return len(crew_list)
 
 
 def flatten_nested_columns(df: pd.DataFrame) -> pd.DataFrame:
