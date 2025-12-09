@@ -81,16 +81,11 @@ def setup_logging(config_path: str = "config/config.yaml", module_name: str = No
     # Prevent propagation to root logger to avoid duplicate messages
     logger.propagate = False
     
-    # Clear root logger handlers to prevent interference (common in Jupyter notebooks)
-    root_logger = logging.getLogger()
-    if root_logger.handlers:
-        for handler in root_logger.handlers[:]:
-            root_logger.removeHandler(handler)
-    
-    # If logger already has handlers, it's already configured - just return it
-    # This prevents adding duplicate handlers when the same logger is requested multiple times
+    # Remove all existing handlers from this logger to prevent duplicates
+    # This is especially important in Jupyter notebooks where cells can be re-run
     if logger.handlers:
-        return logger
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
     
     try:
         config = load_config(config_path)
