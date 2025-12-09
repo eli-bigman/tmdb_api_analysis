@@ -1,184 +1,199 @@
 """
-Data cleaning pipeline orchestrator.
+Complete data cleaning pipeline for TMDB movie data.
+Refactored from notebooks/02_data_cleaning.ipynb.
 """
 import pandas as pd
+import numpy as np
 import json
 from pathlib import Path
-from typing import Dict, Any
-
 import sys
-sys.path.append(str(Path(__file__).parent.parent.parent))
-from src.utils.helpers import load_config, get_all_json_files, setup_logging
-from src.transform.extractors import flatten_nested_columns
-from src.transform.cleaners import (
-    clean_datatypes, 
-    handle_missing_values, 
-    apply_quality_filters,
-    add_derived_features,
-    reorder_columns
-)
 
-# Setup logger for this module
+# Add project root to path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from src.utils.helpers import load_config, setup_logging
+
+# Setup logger
 logger = setup_logging(module_name='transform')
 
+def extract_name(data):
+    """Extract single name from dict."""
+    if isinstance(data, dict):
+        return data.get('name')
+    return np.nan
 
-class DataCleaningPipeline:
-    """Orchestrates the complete data cleaning workflow."""
-    
-    def __init__(self, config_path: str = "config/config.yaml"):
-        """
-        Initialize pipeline.
-        
-        Args:
-            config_path: Path to configuration file
-        """
-        self.config = load_config(config_path)
-        self.raw_data_path = Path(self.config['paths']['raw_data'])
-        self.interim_data_path = Path(self.config['paths']['interim_data'])
-        self.processed_data_path = Path(self.config['paths']['processed_data'])
-        
-        # Create output directories
-        self.interim_data_path.mkdir(parents=True, exist_ok=True)
-        self.processed_data_path.mkdir(parents=True, exist_ok=True)
-    
-    def load_raw_data(self) -> pd.DataFrame:
-        """
-        Load all raw JSON files into a DataFrame.
-        
-        Returns:
-            DataFrame with raw movie data
-        """
-        json_files = get_all_json_files(str(self.raw_data_path))
-        logger.info(f"Loading {len(json_files)} JSON files from {self.raw_data_path}")
-        
-        if not json_files:
-            raise ValueError(f"No JSON files found in {self.raw_data_path}")
-        
-        movies_data = []
-        for json_file in json_files:
-            try:
-                with open(json_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    movies_data.append(data)
-            except Exception as e:
-                logger.warning(f"Error loading {json_file.name}: {e}")
-        
-        df = pd.DataFrame(movies_data)
-        logger.info(f"Loaded {len(df)} movies with {len(df.columns)} columns")
-        return df
-    
-    def run(self, save_interim: bool = True, save_final: bool = True) -> pd.DataFrame:
-        """
-        Execute complete cleaning pipeline.
-        
-        Args:
-            save_interim: Save interim data
-            save_final: Save final processed data
-            
-        Returns:
-            Cleaned DataFrame
-        """
-        logger.info("="*60)
-        logger.info("Starting data cleaning pipeline")
-        logger.info("="*60)
-        
-        # Load raw data
-        df = self.load_raw_data()
-        logger.info(f"Initial shape: {df.shape}")
-        
-        # Step 1: Flatten nested columns
-        logger.info("Extracting nested columns...")
-        df = flatten_nested_columns(df)
-        logger.info("✓ Nested columns extracted")
-        
-        # Step 2: Clean data types
-        logger.info("Converting data types...")
-        df = clean_datatypes(df)
-        logger.info("✓ Data types converted")
-        
-        # Step 3: Handle missing and unrealistic values
-        logger.info("Handling missing and unrealistic values...")
-        df = handle_missing_values(df)
-        logger.info("✓ Missing and unrealistic values handled")
-        
-        # Save interim data
-        if save_interim:
-            interim_file = self.interim_data_path / 'movies_interim.csv'
-            df.to_csv(interim_file, index=False)
-            logger.info(f"✓ Interim data saved to {interim_file}")
-        
-        # Step 4: Apply quality filters
-        logger.info("Applying quality filters...")
-        original_count = len(df)
-        df = apply_quality_filters(df)
-        removed = original_count - len(df)
-        logger.info(f"✓ Quality filters applied: {removed} movies removed ({len(df)} remaining)")
-        
-        # Step 5: Add derived features
-        logger.info("Adding derived features...")
-        df = add_derived_features(df)
-        logger.info("✓ Derived features added")
-        
-        # Step 6: Reorder columns
-        logger.info("Reordering columns...")
-        df = reorder_columns(df)
-        logger.info("✓ Columns reordered")
-        
-        logger.info(f"Final shape: {df.shape}")
-        
-        # Save final processed data
-        if save_final:
-            # Save as CSV
-            csv_file = self.processed_data_path / 'movies_cleaned.csv'
-            df.to_csv(csv_file, index=False)
-            logger.info(f"✓ CSV saved to {csv_file}")
-            
-            # Save as Parquet
-            parquet_file = self.processed_data_path / 'movies_cleaned.parquet'
-            df.to_parquet(parquet_file, index=False)
-            logger.info(f"✓ Parquet saved to {parquet_file}")
-        
-        logger.info("="*60)
-        logger.info("✓ Data cleaning pipeline completed successfully")
-        logger.info("="*60)
-        
-        return df
-    
-    def get_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """
-        Generate cleaning summary statistics.
-        
-        Args:
-            df: Cleaned DataFrame
-            
-        Returns:
-            Dictionary with summary statistics
-        """
-        summary = {
-            'total_movies': len(df),
-            'total_columns': len(df.columns),
-            'null_percentages': (df.isnull().sum() / len(df) * 100).to_dict(),
-            'numeric_summary': df.describe().to_dict(),
-            'date_range': {
-                'earliest': df['release_date'].min() if 'release_date' in df.columns else None,
-                'latest': df['release_date'].max() if 'release_date' in df.columns else None
-            }
-        }
-        return summary
+def extract_names_list(data, key='name', separator='|'):
+    """Extract list of names from list of dicts."""
+    if isinstance(data, list):
+        names = [item.get(key) for item in data if isinstance(item, dict) and item.get(key)]
+        return separator.join(names) if names else np.nan
+    return np.nan
 
+def extract_cast_info(credits_data):
+    """Extract cast and crew information."""
+    if isinstance(credits_data, dict):
+        cast = credits_data.get('cast', [])
+        crew = credits_data.get('crew', [])
+        
+        # Top 5 cast
+        top_cast = [p.get('name') for p in cast[:5]]
+        cast_str = '|'.join(top_cast) if top_cast else np.nan
+        
+        # Director
+        director = next((p.get('name') for p in crew if p.get('job') == 'Director'), np.nan)
+        
+        return pd.Series([cast_str, len(cast), director, len(crew)])
+    return pd.Series([np.nan, 0, np.nan, 0])
 
-def main():
-    """Run data cleaning pipeline."""
-    pipeline = DataCleaningPipeline()
-    df = pipeline.run()
+def run_pipeline(config_path: str = "config/config.yaml"):
+    """
+    Run the complete data cleaning pipeline.
     
-    # Display summary
-    summary = pipeline.get_summary(df)
-    logger.info(f"\nCleaning Summary:")
-    logger.info(f"  Total movies: {summary['total_movies']}")
-    logger.info(f"  Total columns: {summary['total_columns']}")
-    logger.info(f"  Date range: {summary['date_range']['earliest']} to {summary['date_range']['latest']}")
+    Args:
+        config_path: Path to configuration file
+    """
+    logger.info("Starting data cleaning pipeline...")
+    
+    # 1. Load Configuration
+    try:
+        config = load_config(config_path)
+        logger.info(f"Loaded config from {config_path}")
+    except Exception as e:
+        logger.error(f"Failed to load config: {e}")
+        return
 
+    # 2. Load Data
+    raw_path = Path(config['paths']['raw_data'])
+    if not raw_path.exists():
+        logger.error(f"Raw data path does not exist: {raw_path}")
+        return
+
+    json_files = list(raw_path.glob('*.json'))
+    logger.info(f"Found {len(json_files)} JSON files in {raw_path}")
+    
+    data_list = []
+    for file in json_files:
+        try:
+            with open(file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                data_list.append(data)
+        except Exception as e:
+            logger.warning(f"Error reading {file}: {e}")
+    
+    df = pd.DataFrame(data_list)
+    logger.info(f"Initial DataFrame shape: {df.shape}")
+
+    # 3. Data Cleaning
+    
+    # 3.1 Drop Irrelevant Columns
+    cols_to_drop = ['adult', 'imdb_id', 'original_title', 'video', 'homepage']
+    existing_cols = [col for col in cols_to_drop if col in df.columns]
+    df_clean = df.drop(columns=existing_cols).copy()
+    logger.info(f"Dropped columns: {existing_cols}")
+
+    # 3.2 Flatten Nested Columns
+    logger.info("Flattening nested JSON columns...")
+    df_clean['collection_name'] = df_clean['belongs_to_collection'].apply(extract_name)
+    df_clean['genres'] = df_clean['genres'].apply(lambda x: extract_names_list(x))
+    df_clean['production_countries'] = df_clean['production_countries'].apply(lambda x: extract_names_list(x))
+    df_clean['production_companies'] = df_clean['production_companies'].apply(lambda x: extract_names_list(x))
+    df_clean['spoken_languages'] = df_clean['spoken_languages'].apply(lambda x: extract_names_list(x))
+
+    # 3.3 Handle Missing & Incorrect Data
+    logger.info("Cleaning datatypes and handling missing values...")
+    
+    # Convert numeric columns
+    numeric_cols = ['budget', 'id', 'popularity', 'revenue', 'vote_count', 'vote_average', 'runtime']
+    for col in numeric_cols:
+        if col in df_clean.columns:
+            df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
+
+    # Convert release_date
+    if 'release_date' in df_clean.columns:
+        df_clean['release_date'] = pd.to_datetime(df_clean['release_date'], errors='coerce')
+
+    # Handle zero values
+    for col in ['budget', 'revenue', 'runtime']:
+        if col in df_clean.columns:
+            df_clean[col] = df_clean[col].replace(0, np.nan)
+
+    # Derived million USD columns
+    df_clean['budget_musd'] = df_clean['budget'] / 1_000_000
+    df_clean['revenue_musd'] = df_clean['revenue'] / 1_000_000
+
+    # Handle text placeholders
+    text_cols = ['overview', 'tagline']
+    placeholders = ['No Data', 'No Overview', 'n/a', 'nan']
+    for col in text_cols:
+        if col in df_clean.columns:
+            df_clean[col] = df_clean[col].replace(placeholders, np.nan)
+
+    # 3.4 Filtering
+    initial_len = len(df_clean)
+    
+    # Drop duplicates
+    df_clean = df_clean.drop_duplicates(subset=['id'], keep='first')
+    
+    # Drop missing ID/Title
+    df_clean = df_clean.dropna(subset=['id', 'title'])
+    
+    # Threshold filtering
+    df_clean = df_clean.dropna(thresh=10)
+    
+    # Status filtering
+    if 'status' in df_clean.columns:
+        df_clean = df_clean[df_clean['status'] == 'Released']
+        df_clean = df_clean.drop(columns=['status'])
+        
+    logger.info(f"Rows removed during filtering: {initial_len - len(df_clean)}")
+    logger.info(f"Current count: {len(df_clean)}")
+
+    # 4. Feature Engineering
+    logger.info("Performing feature engineering...")
+    
+    # Cast & Crew
+    if 'credits' in df_clean.columns:
+        df_clean[['cast', 'cast_size', 'director', 'crew_size']] = df_clean['credits'].apply(extract_cast_info)
+
+    # Release Year
+    df_clean['release_year'] = df_clean['release_date'].dt.year
+    
+    # Force string types for specific columns
+    string_cols = ['tagline', 'title', 'collection_name']
+    for col in string_cols:
+        if col in df_clean.columns:
+            df_clean[col] = df_clean[col].astype(str).replace('nan', np.nan)
+
+    # 5. Inspection (Log anomalies)
+    logger.info("Inspecting Extracted Data (Top 5 values):")
+    inspection_cols = ['genres', 'collection_name', 'production_countries']
+    for col in inspection_cols:
+        if col in df_clean.columns:
+            logger.info(f"\n--- {col} ---\n{df_clean[col].value_counts().head(5)}")
+
+    # 6. Finalize & Save
+    desired_order = [
+        'id', 'title', 'tagline', 'release_date', 'genres', 'collection_name', 
+        'original_language', 'budget_musd', 'revenue_musd', 'production_companies', 
+        'production_countries', 'vote_count', 'vote_average', 'popularity', 
+        'runtime', 'overview', 'spoken_languages', 'poster_path', 
+        'cast', 'cast_size', 'director', 'crew_size'
+    ]
+    
+    final_cols = [c for c in desired_order if c in df_clean.columns]
+    df_final = df_clean[final_cols].copy()
+    df_final = df_final.reset_index(drop=True)
+    
+    processed_path = Path(config['paths']['processed_data'])
+    processed_path.mkdir(parents=True, exist_ok=True)
+    
+    output_csv = processed_path / 'movies_cleaned.csv'
+    output_parquet = processed_path / 'movies_cleaned.parquet'
+    
+    df_final.to_csv(output_csv, index=False)
+    df_final.to_parquet(output_parquet, index=False)
+    
+    logger.info(f"Successfully saved cleaned data to {output_csv} and {output_parquet}")
+    logger.info("Pipeline completed successfully.")
 
 if __name__ == "__main__":
-    main()
+    run_pipeline()
