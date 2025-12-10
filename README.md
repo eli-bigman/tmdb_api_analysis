@@ -17,6 +17,7 @@ tmdb-movie-analysis/
 │   └── processed/                # Final cleaned dataset
 │
 ├── notebooks/
+│   ├── pipeline.ipynb            # Main pipeline
 │   ├── 01_fetch_api.ipynb        # API data collection
 │   ├── 02_data_cleaning.ipynb    # Data transformation
 │   ├── 03_kpi_analysis.ipynb     # KPI computation
