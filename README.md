@@ -8,11 +8,11 @@ A comprehensive data analysis project using The Movie Database (TMDB) API to ana
 tmdb-movie-analysis/
 │
 ├── config/
-│   ├── config.yaml               # Global configuration
-│   └── credentials.example.env   # API key template
+│   └── config.yaml               # Global configuration
+│   
 │
 ├── data/
-│   ├── raw/                      # JSON from API (never edit)
+│   ├── raw/                      # JSON from API
 │   ├── interim/                  # Partially cleaned data
 │   └── processed/                # Final cleaned dataset
 │
@@ -23,15 +23,11 @@ tmdb-movie-analysis/
 │   └── 04_visualizations.ipynb   # Plots and insights
 │
 ├── src/
-│   ├── utils/                    # Helper functions
-│   ├── fetch/                    # API extraction
-│   ├── transform/                # Data cleaning
-│   ├── analytics/                # KPI calculations
-│   └── viz/                      # Visualization functions
-│
-└── reports/
-    ├── figures/                  # Exported visualizations
-    └── final_report.md           # Final analysis report
+   ├── utils/                    # Helper functions
+   ├── fetch/                    # API extraction
+   ├── analytics/                # KPI calculations
+   └── viz/                      # Visualization functions
+
 ```
 
 ## Setup
@@ -62,11 +58,11 @@ pip install -r requirements.txt
 ### 4. Configure API credentials
 
 1. Get your TMDB API key from [https://www.themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
-2. Copy `config/credentials.example.env` to `.env`
+2. Copy `example.env` to `.env`
 3. Add your API key to `.env`
 
 ```bash
-cp config/credentials.example.env .env
+cp example.env .env
 # Edit .env and add your API key
 ```
 
@@ -87,22 +83,8 @@ Edit `config/config.yaml` to customize:
 3. **03_kpi_analysis.ipynb** - Calculate KPIs and perform analysis
 4. **04_visualizations.ipynb** - Generate visualizations and insights
 
-### Or use Python modules:
 
-```python
-from src.fetch.fetch_tmdb_api import fetch_movies
-from src.transform.clean_columns import clean_data
-from src.analytics.kpi_functions import calculate_kpis
 
-# Fetch data
-movies = fetch_movies(limit=100)
-
-# Clean data
-clean_df = clean_data(movies)
-
-# Calculate KPIs
-kpis = calculate_kpis(clean_df)
-```
 
 ## Analysis Features
 
