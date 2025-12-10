@@ -120,9 +120,23 @@ def setup_logging(config_path: str = "config/config.yaml", module_name: str = No
     # File handler
     if log_config.get('log_to_file', False):
         log_file = log_config.get('log_file', 'logs/tmdb_analysis.log')
+        
+        # Find project root (where config/ directory exists)
+        current = Path.cwd()
+        project_root = current
+        
+        # Search up the directory tree for config folder
+        for parent in [current] + list(current.parents):
+            if (parent / 'config').exists():
+                project_root = parent
+                break
+        
+        # Make log file path absolute relative to project root
+        log_file_path = project_root / log_file
+        
         try:
-            Path(log_file).parent.mkdir(parents=True, exist_ok=True)
-            file_handler = logging.FileHandler(log_file, encoding='utf-8')
+            log_file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
             file_handler.setLevel(level)
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
