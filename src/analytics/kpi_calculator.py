@@ -37,14 +37,37 @@ def rank_movies(
         >>> rank_movies(df, 'revenue_musd', top_n=20)
         >>> rank_movies(df, 'roi', filter_condition=df['budget_musd'] >= 10)
     """
+    # Create a working copy
+    df_filtered = df.copy()
+
+    # Calculate derived columns if missing
+    if 'release_year' not in df_filtered.columns and 'release_date' in df_filtered.columns:
+        df_filtered['release_year'] = pd.to_datetime(df_filtered['release_date'], errors='coerce').dt.year
+
+    if metric == 'profit_musd' and 'profit_musd' not in df_filtered.columns:
+        if 'revenue_musd' in df_filtered.columns and 'budget_musd' in df_filtered.columns:
+            df_filtered['profit_musd'] = df_filtered['revenue_musd'] - df_filtered['budget_musd']
+            
+    if metric == 'roi' and 'roi' not in df_filtered.columns:
+        if 'revenue_musd' in df_filtered.columns and 'budget_musd' in df_filtered.columns:
+            # Avoid division by zero
+            df_filtered['roi'] = (df_filtered['revenue_musd'] - df_filtered['budget_musd']) / df_filtered['budget_musd'].replace(0, np.nan) * 100
+
     # Apply filter if provided
     if filter_condition is not None:
-        df_filtered = df[filter_condition].copy()
-    else:
-        df_filtered = df.copy()
+        if len(filter_condition) == len(df_filtered):
+             df_filtered = df_filtered[filter_condition].copy()
+        else:
+            # If indices don't match (e.g. if filter was created on original df), try align
+             df_filtered = df_filtered.loc[df_filtered.index.intersection(filter_condition[filter_condition].index)].copy()
+
     
     # Remove rows where metric is null
-    df_filtered = df_filtered.dropna(subset=[metric])
+    if metric in df_filtered.columns:
+        df_filtered = df_filtered.dropna(subset=[metric])
+    else:
+        # If metric still doesn't exist (e.g. calculation failed due to missing dependency), return empty
+        return pd.DataFrame(columns=display_columns if display_columns else ['rank', 'title', metric])
     
     # Sort by metric
     df_sorted = df_filtered.sort_values(by=metric, ascending=ascending)
@@ -74,9 +97,16 @@ def rank_movies(
             optional_cols = ['release_year']
         
         # Build final column list (avoid duplicates)
+        # Check if columns exist in df_top before adding them
         display_columns = base_cols + [col for col in optional_cols if col not in base_cols and col in df_top.columns]
     
-    return df_top[display_columns].reset_index(drop=True)
+    
+    result = df_top[display_columns].reset_index(drop=True)
+    # Set rank as index to hide the redundant numeric index in display
+    # But keep rank as a regular column for CSV export compatibility
+    result.index = result['rank']
+    result.index.name = None  # Hide the index name
+    return result
 
 
 def get_top_by_revenue(df: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:

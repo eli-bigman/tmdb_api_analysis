@@ -14,8 +14,8 @@ def compare_franchise_vs_standalone(df: pd.DataFrame) -> pd.DataFrame:
     Compare franchise movies vs standalone movies across key metrics.
     
     Groups movies into:
-    - Franchise: Movies with a non-null 'belongs_to_collection' value
-    - Standalone: Movies with null 'belongs_to_collection' value
+    - Franchise: Movies with a non-null 'collection_name' value
+    - Standalone: Movies with null 'collection_name' value
     
     Metrics calculated:
     - Mean Revenue
@@ -37,7 +37,12 @@ def compare_franchise_vs_standalone(df: pd.DataFrame) -> pd.DataFrame:
     """
     # Create franchise indicator
     df_work = df.copy()
-    df_work['is_franchise'] = df_work['belongs_to_collection'].notna()
+    df_work['is_franchise'] = df_work['collection_name'].notna()
+
+    # Calculate ROI if missing (needed for Median ROI)
+    if 'roi' not in df_work.columns:
+        if 'revenue_musd' in df_work.columns and 'budget_musd' in df_work.columns:
+            df_work['roi'] = (df_work['revenue_musd'] - df_work['budget_musd']) / df_work['budget_musd'].replace(0, np.nan) * 100
     
     # Group by franchise status
     grouped = df_work.groupby('is_franchise')
@@ -82,7 +87,7 @@ def get_franchise_statistics(df: pd.DataFrame) -> pd.DataFrame:
     """
     Get detailed statistics for each movie franchise.
     
-    Groups by 'belongs_to_collection' and calculates:
+    Groups by 'collection_name' and calculates:
     - Total number of movies in franchise
     - Total Budget
     - Mean Budget
@@ -101,17 +106,17 @@ def get_franchise_statistics(df: pd.DataFrame) -> pd.DataFrame:
         >>> print(franchise_stats.head(10))
     """
     # Filter to only franchise movies
-    df_franchises = df[df['belongs_to_collection'].notna()].copy()
+    df_franchises = df[df['collection_name'].notna()].copy()
     
     if len(df_franchises) == 0:
         return pd.DataFrame()
     
     # Group by collection
-    grouped = df_franchises.groupby('belongs_to_collection')
+    grouped = df_franchises.groupby('collection_name')
     
     # Calculate statistics
     stats = pd.DataFrame({
-        'Franchise': grouped['belongs_to_collection'].first().values,
+        'Franchise': grouped['collection_name'].first().values,
         'Movie_Count': grouped.size().values,
         'Total_Budget_MUSD': grouped['budget_musd'].sum().values,
         'Mean_Budget_MUSD': grouped['budget_musd'].mean().values,
