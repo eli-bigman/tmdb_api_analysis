@@ -47,3 +47,7 @@ logs/
 dist/
 build/
 *.egg-info/
+
+# md files
+!README.md
+*.md
